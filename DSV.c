@@ -1,19 +1,32 @@
 #include <GL/glut.h>
+#include <stdlib.h>
 #include <math.h>
 
 #define N 48
 #define X 8
 #define Y 6
+#define WIDTH 800
+#define HEIGHT 600
+#define SIDE 100
 
-int a = 0;
-int p[N][2];
-int o[5] = {1, 43, 20, 12, 34};
-/*the above array should be a randomized sequence of non-repeating,
-	non-negative integers from 0 to N inclusive*/
+struct node
+{
+	int value;
+	int xx;
+	int yy;
+	struct node* next;
+};
+typedef struct node node;
+
+node* head = NULL;
+int a = 1;
+int p[X*Y][2];
+int o[X][Y];
 
 GLfloat red[3] = {1, 0, 0};
 GLfloat green[3] = {0, 1, 0};
 GLfloat blue[3] = {0, 0, 1};
+GLfloat yellow[3] = {1, 1, 0};
 
 void printStr(int x, int y, GLfloat* color, char *str)
 {
@@ -39,6 +52,7 @@ void printNum(int x, int y, GLfloat* color, int num)
 	}
 
 	length = (int)(log10(num))+1;
+	rev = 0;
 	for(i = 0 ; i < length ; i++)
 	{
 		rev = (rev * 10) + (num % 10);
@@ -51,22 +65,30 @@ void printNum(int x, int y, GLfloat* color, int num)
 		rev /= 10;
 	}
 }
-void newSquare(int x, int y)
+
+void newSquare(int x, int y, int last)
 {
 	glColor3fv(red);
 	glBegin(GL_POLYGON);
-	glVertex2f(x+25, y+25);
-	glVertex2f(x+75, y+25);
-	glVertex2f(x+75, y+75);
-	glVertex2f(x+25, y+75);
+	glVertex2f(x+SIDE/4, y+SIDE/4);
+	glVertex2f(x+3*SIDE/4, y+SIDE/4);
+	glVertex2f(x+3*SIDE/4, y+3*SIDE/4);
+	glVertex2f(x+SIDE/4, y+3*SIDE/4);
 	glEnd();
 
-	glColor3fv(blue);
+	if(last == 0)
+	{
+		glColor3fv(green);
+	}
+	else
+	{
+		glColor3fv(blue);
+	}
 	glBegin(GL_POLYGON);
-	glVertex2f(x+75, y+25);
-	glVertex2f(x+85, y+25);
-	glVertex2f(x+85, y+75);
-	glVertex2f(x+75, y+75);
+	glVertex2f(x+3*SIDE/4, y+SIDE/4);
+	glVertex2f(x+3*SIDE/4+SIDE/8, y+SIDE/4);
+	glVertex2f(x+3*SIDE/4+SIDE/8, y+3*SIDE/4);
+	glVertex2f(x+3*SIDE/4, y+3*SIDE/4);
 	glEnd();
 }
 
@@ -74,64 +96,145 @@ void grid()
 {
 	int i;
 	glBegin(GL_LINES);
-	for(i = 0 ; i < 600 ; i += 100)
+	for(i = 0 ; i < HEIGHT ; i += SIDE)
 	{
 		glVertex2f(0, i);
-		glVertex2f(800, i);
+		glVertex2f(WIDTH, i);
 	}
-	for(i = 0 ; i < 900 ; i += 100)
+	for(i = 0 ; i < WIDTH+SIDE ; i += SIDE)
 	{
 		glVertex2f(i, 0);
-		glVertex2f(i, 600);
+		glVertex2f(i, HEIGHT);
 	}
 	glEnd();
-	for(i = 0 ; i < N ; i++)
+	for(i = 0 ; i < X*Y ; i++)
 	{
-		printNum(p[i][0]+5, p[i][1]+5, red, i);
+		printNum(p[i][0]+SIDE/20, p[i][1]+SIDE/20, red, i);
+	}
+}
+
+void addNode(int new_value, int x, int y)
+{
+	node* traveller;
+	node* new_node = (node*)malloc(sizeof(struct node));
+	new_node->value = new_value;
+	new_node->xx = x;
+	new_node->yy = y;
+	new_node->next = NULL;
+
+	if(head == NULL)
+	{
+		head = new_node;
+		return;
 	}
 
+	for(traveller = head;
+		traveller->next != NULL;
+		traveller = traveller->next);
+
+	traveller->next = new_node;
+}
+
+void deleteNode(int node_value)
+{
+	node* traveller;
+	node* previous = NULL;
+
+	if(head == NULL)
+	{
+		return;
+	}
+
+	if(head->next == head)
+	{
+		free(head);
+		head = NULL;
+		return;
+	}
+
+	if(head->value == node_value)
+	{
+		previous = head;
+		head = head->next;
+		free(previous);
+		return;
+	}
+
+	previous = head;
+	for(traveller = head->next;
+		traveller != NULL;
+		traveller = traveller->next)
+	{
+		if(traveller->value == node_value)
+		{
+			previous->next = traveller->next;
+			free(traveller);
+			return;
+		}
+		previous = traveller;
+	}
 }
 
 void display()
 {
-	int i;
-	int lastx, lasty;
+	node* traveller;
+	node* previous = NULL;
 	glClear(GL_COLOR_BUFFER_BIT);
-	glColor3f(1, 0, 0);
+	glColor3fv(red);
 	grid();
-	for(i = 0 ; i < a ; i++)
+
+	for(traveller = head;
+		traveller != NULL;
+		traveller = traveller->next)
 	{
-		newSquare(p[o[i]][0], p[o[i]][1]);
-		if(i != 0)
+		if(traveller->next == NULL)
 		{
+			newSquare(traveller->xx, traveller->yy, 0);
+		}
+		else
+		{
+			newSquare(traveller->xx, traveller->yy, 1);
+		}
+
+		if(previous != NULL)
+		{
+			glColor3fv(blue);
 			glBegin(GL_LINES);
-			glVertex2f(lastx+85, lasty+50);
-			glVertex2f(p[o[i]][0]+50, p[o[i]][1]+50);
+			glVertex2f(previous->xx + 3*SIDE/4+SIDE/8, previous->yy + SIDE/2);
+			glVertex2f(traveller->xx + SIDE/2, traveller->yy + SIDE/2);
 			glEnd();
 		}
-		printNum(p[o[i]][0]+50, p[o[i]][1]+50, green, i);
-		glColor3f(1, 0, 0);
-		lastx = p[o[i]][0];
-		lasty = p[o[i]][1];
+		printNum(traveller->xx + SIDE/2, traveller->yy + SIDE/2, yellow, traveller->value);
+		previous = traveller;
 	}
-
 	glFlush();
 }
 
 void mouse(int button, int state, int x, int y)
 {
+	int v;
+	y = HEIGHT-y;
+	v = o[x/SIDE][y/SIDE];
 	if(button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
 	{
-		a++;
+		if(v == 0)
+		{
+			addNode(a, x - (x%SIDE), y - (y%SIDE));
+			v = a;
+			a++;
+		}
 	}
 
 	if(button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN)
 	{
-		if(a > 0)
+		if(v != 0)
 		{
-			a--;
+			deleteNode(v);
+			v = 0;
 		}
 	}
+
+	o[x/SIDE][y/SIDE] = v;
 }
 
 void main(int argc, char* argv[])
@@ -141,14 +244,16 @@ void main(int argc, char* argv[])
 	{
 		for(j = 0 ; j < X ; j++)
 		{
-			p[i*X+j][0] = j*100;
-			p[i*X+j][1] = i*100; 
+			p[i*X+j][0] = j*SIDE;
+			p[i*X+j][1] = i*SIDE;
+			o[X][Y] = 0; 
 		}
 	}
+	head = NULL;
 
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
-	glutInitWindowSize(1000, 600);
+	glutInitWindowSize(WIDTH+2*SIDE, HEIGHT);
 	glutInitWindowPosition(0, 0);
 	glutCreateWindow("CG project");
 	glutDisplayFunc(display);
@@ -157,7 +262,7 @@ void main(int argc, char* argv[])
 	glClearColor(1.0, 1.0, 1.0, 1.0);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluOrtho2D(0, 1000, 0, 600);
+	gluOrtho2D(0, WIDTH+2*SIDE, 0, HEIGHT);
 	glMatrixMode(GL_MODELVIEW);
 
 	glutMainLoop();
